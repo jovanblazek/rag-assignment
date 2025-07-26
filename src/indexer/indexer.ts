@@ -5,17 +5,32 @@ import { createClient } from '@supabase/supabase-js'
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters'
 import { PPTXLoader } from '@langchain/community/document_loaders/fs/pptx'
 import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf'
-import { MultiFileLoader } from 'langchain/document_loaders/fs/multi_file'
-import { getFilePaths } from './getFilePaths'
+import { DirectoryLoader } from 'langchain/document_loaders/fs/directory'
+import path from 'path'
+import z from 'zod'
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai'
+import fs from 'fs'
+
+const DECKS_PATH = path.join(__dirname, '..', '..', 'decks')
+
+const metadataSchema = z.object({
+  title: z
+    .string()
+    .describe('The title of the document, e.g. from the first page.'),
+  agency: z.string().nullable().describe('The author or name of the agency.'),
+  year: z.number().nullable().describe('The year of the document.'),
+  topics: z.array(z.string()).describe('The topics of the document.'),
+})
 
 async function main() {
   const embeddings = new OpenAIEmbeddings({
     model: 'text-embedding-3-large',
+    apiKey: process.env.OPENAI_API_KEY,
   })
 
   const supabaseClient = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_PRIVATE_KEY!
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_PRIVATE_KEY
   )
 
   const vectorStore = new SupabaseVectorStore(embeddings, {
@@ -24,11 +39,7 @@ async function main() {
     queryName: 'match_documents',
   })
 
-  const filePathsToLoad = getFilePaths()
-
-  console.log('File paths to load:', filePathsToLoad)
-
-  const loader = new MultiFileLoader([filePathsToLoad[0]], {
+  const loader = new DirectoryLoader(DECKS_PATH, {
     '.pptx': (path) => new PPTXLoader(path),
     '.pdf': (path) => new PDFLoader(path),
   })
@@ -37,7 +48,27 @@ async function main() {
 
   const docs = await loader.load()
 
-  console.log('Docs loaded')
+  console.log('Docs loaded: ', docs.length)
+
+  // Call gemini to extract metadata for each doc
+  const geminiWithStructuredOutput = new ChatGoogleGenerativeAI({
+    model: 'gemini-2.0-flash',
+    apiKey: process.env.GOOGLE_API_KEY,
+    maxRetries: 1,
+  }).withStructuredOutput(metadataSchema)
+
+  const file = fs.readFileSync(docs[0].metadata.source)
+
+  const metadata = await geminiWithStructuredOutput.invoke([
+    [
+      'system',
+      'You are a helpful assistant that extracts metadata from provided document.',
+    ],
+    // TODO: Add file to the user message
+    ['user', 'Extract metadata from this file'],
+  ])
+
+  console.log(metadata)
 
   console.log('Splitting decks...')
 
@@ -47,7 +78,9 @@ async function main() {
   })
   const allSplits = await splitter.splitDocuments(docs)
 
-  console.log(allSplits[3].pageContent)
+  console.log(allSplits[0])
+
+  console.log('Splits done: ', allSplits.length)
 
   // console.log("Adding decks to vector store...")
   // await vectorStore.addDocuments(allSplits)
