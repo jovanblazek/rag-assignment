@@ -1,0 +1,32 @@
+{
+  "name": "rag-assignment",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "indexer": "tsx src/indexer/indexer.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.4.1",
+  "dependencies": {
+    "@langchain/community": "^0.3.49",
+    "@langchain/core": "^0.3.66",
+    "@langchain/langgraph": "^0.3.11",
+    "@langchain/openai": "^0.6.3",
+    "@langchain/textsplitters": "^0.1.0",
+    "@supabase/supabase-js": "^2.52.1",
+    "dotenv": "^17.2.1",
+    "langchain": "^0.3.30",
+    "officeparser": "^5.2.0",
+    "pdf-parse": "^1.1.1",
+    "zod": "^4.0.10"
+  },
+  "devDependencies": {
+    "@types/node": "^24.1.0",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  }
+}
