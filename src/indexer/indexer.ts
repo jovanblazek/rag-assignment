@@ -10,6 +10,7 @@ import path from 'path'
 import z from 'zod'
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai'
 import fs from 'fs'
+import { HumanMessage } from '@langchain/core/messages'
 
 const DECKS_PATH = path.join(__dirname, '..', '..', 'decks')
 
@@ -59,16 +60,33 @@ async function main() {
 
   const file = fs.readFileSync(docs[0].metadata.source)
 
+  const userMessage = new HumanMessage({
+    content: [
+      {
+        type: 'text',
+        text: 'Extract metadata from this file',
+      },
+      {
+        type: 'file',
+        mime_type: 'application/pdf',
+        source_type: 'base64',
+        data: Buffer.from(file).toString('base64'),
+        name: docs[0].metadata.source.split('/').pop(),
+      },
+    ],
+  })
+
   const metadata = await geminiWithStructuredOutput.invoke([
     [
       'system',
       'You are a helpful assistant that extracts metadata from provided document.',
     ],
-    // TODO: Add file to the user message
-    ['user', 'Extract metadata from this file'],
+    userMessage,
   ])
 
   console.log(metadata)
+
+  return
 
   console.log('Splitting decks...')
 
