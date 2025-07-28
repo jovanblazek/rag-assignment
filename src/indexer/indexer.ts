@@ -65,4 +65,20 @@ async function main() {
   console.log('Done!')
 }
 
-main()
+// main()
+
+async function test() {
+  const metadata = await extractMetadata(
+    path.join(
+      __dirname,
+      '..',
+      '..',
+      'decks',
+      'iiapresentationonpursuringcustomerinspiredgrowth-170602090832.pptx'
+    )
+  )
+
+  console.log(metadata)
+}
+
+test()
