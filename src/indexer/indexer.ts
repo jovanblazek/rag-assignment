@@ -69,13 +69,7 @@ async function main() {
 
 async function test() {
   const metadata = await extractMetadata(
-    path.join(
-      __dirname,
-      '..',
-      '..',
-      'decks',
-      'iiapresentationonpursuringcustomerinspiredgrowth-170602090832.pptx'
-    )
+    path.join(__dirname, '..', '..', 'decks', '20181022-1228full-report-en.pdf')
   )
 
   console.log(metadata)

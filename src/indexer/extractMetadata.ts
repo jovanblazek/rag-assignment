@@ -1,19 +1,15 @@
 import z from 'zod'
 import fs from 'fs'
-import path from 'path'
 import { fileTypeFromBuffer } from 'file-type'
-import libre from 'libreoffice-convert'
-import { promisify } from 'util'
 import {
   createPartFromUri,
   createUserContent,
   GoogleGenAI,
   Type,
   Schema,
-  UploadFileParameters,
 } from '@google/genai'
-
-const convertAsync = promisify(libre.convert)
+import { FileProcessorRegistry } from './fileProcessor'
+import { cleanupTempFile, sleep } from './utils'
 
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY })
 
@@ -21,8 +17,16 @@ const zodMetadataSchema = z.object({
   title: z
     .string()
     .describe('The title of the document, e.g. from the first page.'),
-  agency: z.string().nullable().describe('The author or name of the agency.'),
-  year: z.number().nullable().describe('The year of the document.'),
+  agency: z
+    .string()
+    .nullable()
+    .describe('The author or name of the agency.')
+    .default(null),
+  year: z
+    .number()
+    .nullable()
+    .describe('The year of the document.')
+    .default(null),
   topics: z.array(z.string()).describe('The topics of the document.'),
 })
 
@@ -56,87 +60,22 @@ const geminiMetadataSchema: Schema = {
   },
 }
 
-const POWERPOINT_MIME_TYPE =
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-const PROCESSING_CHECK_INTERVAL = 5000
-
-async function convertPowerPointToPdf(
-  filePath: string
-): Promise<{ tempFilePath: string }> {
-  console.log('Detected PowerPoint file, converting to PDF...')
-
-  try {
-    const inputBuffer = fs.readFileSync(filePath)
-    const fileName = path.basename(filePath)
-    const baseName = path.parse(fileName).name
-    const tempFileName = `${baseName}_converted.pdf`
-    const tempFilePath = path.join(path.dirname(filePath), tempFileName)
-
-    // Convert PowerPoint to PDF using LibreOffice
-    const pdfBuffer = await convertAsync(inputBuffer, '.pdf', undefined)
-    fs.writeFileSync(tempFilePath, pdfBuffer)
-
-    console.log('PowerPoint converted to PDF and saved to temporary file')
-
-    return { tempFilePath }
-  } catch (error) {
-    console.error('Failed to convert PowerPoint file to PDF:', error)
-    throw new Error(`Failed to convert PowerPoint file to PDF: ${error}`)
-  }
-}
+const PROCESSING_CHECK_INTERVAL = 3000
+const fileProcessor = new FileProcessorRegistry()
 
 async function waitForFileProcessing(fileName: string): Promise<void> {
   let fileStatus = await ai.files.get({ name: fileName })
 
   while (fileStatus.state === 'PROCESSING') {
     console.log(`Current file status: ${fileStatus.state}`)
-    console.log('File is still processing, retrying in 5 seconds')
+    console.log('File is still processing, retrying in 3 seconds')
 
-    await new Promise((resolve) =>
-      setTimeout(resolve, PROCESSING_CHECK_INTERVAL)
-    )
+    await sleep(PROCESSING_CHECK_INTERVAL)
     fileStatus = await ai.files.get({ name: fileName })
   }
 
   if (fileStatus.state === 'FAILED') {
     throw new Error('File processing failed.')
-  }
-}
-
-function cleanupTempFile(tempFilePath?: string): void {
-  if (tempFilePath && fs.existsSync(tempFilePath)) {
-    fs.unlinkSync(tempFilePath)
-    console.log('Temporary file cleaned up')
-  }
-}
-
-async function createUploadConfig(
-  filePath: string,
-  fileType: any
-): Promise<UploadFileParameters & { tempFilePath?: string }> {
-  const fileName = path.basename(filePath)
-
-  // Handle PowerPoint files by converting to PDF
-  if (fileType.mime === POWERPOINT_MIME_TYPE) {
-    const { tempFilePath } = await convertPowerPointToPdf(filePath)
-    const tempFileName = path.basename(tempFilePath)
-
-    return {
-      file: tempFilePath,
-      tempFilePath,
-      config: {
-        displayName: tempFileName,
-        mimeType: 'application/pdf',
-      },
-    }
-  }
-
-  // Handle other file types normally
-  return {
-    file: filePath,
-    config: {
-      displayName: fileName,
-    },
   }
 }
 
@@ -149,18 +88,24 @@ async function uploadFile(filePath: string) {
     throw new Error(`Unsupported file type: ${filePath}`)
   }
 
-  const uploadConfig = await createUploadConfig(filePath, fileType)
+  const processedFile = await fileProcessor.processFile(filePath, fileType.mime)
 
   try {
-    const uploadedFile = await ai.files.upload(uploadConfig)
+    const uploadedFile = await ai.files.upload({
+      file: processedFile.filePath,
+      config: {
+        displayName: processedFile.displayName,
+        mimeType: processedFile.mimeType,
+      },
+    })
 
     await waitForFileProcessing(uploadedFile.name)
-    console.log('File uploaded successfully:', uploadConfig.config?.displayName)
+    console.log('File uploaded successfully:', processedFile.displayName)
 
     return uploadedFile
   } finally {
     // Always cleanup temp files, even if upload fails
-    cleanupTempFile(uploadConfig.tempFilePath)
+    cleanupTempFile(processedFile.tempFilePath)
   }
 }
 
