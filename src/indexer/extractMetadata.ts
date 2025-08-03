@@ -2,7 +2,8 @@ import z from 'zod'
 import fs from 'fs'
 import path from 'path'
 import { fileTypeFromBuffer } from 'file-type'
-import { parseOfficeAsync } from 'officeparser'
+import libre from 'libreoffice-convert'
+import { promisify } from 'util'
 import {
   createPartFromUri,
   createUserContent,
@@ -11,6 +12,8 @@ import {
   Schema,
   UploadFileParameters,
 } from '@google/genai'
+
+const convertAsync = promisify(libre.convert)
 
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY })
 
@@ -57,25 +60,28 @@ const POWERPOINT_MIME_TYPE =
   'application/vnd.openxmlformats-officedocument.presentationml.presentation'
 const PROCESSING_CHECK_INTERVAL = 5000
 
-async function extractTextFromPowerPoint(
+async function convertPowerPointToPdf(
   filePath: string
-): Promise<{ textContent: string; tempFilePath: string }> {
-  console.log('Detected PowerPoint file, extracting text...')
+): Promise<{ tempFilePath: string }> {
+  console.log('Detected PowerPoint file, converting to PDF...')
 
   try {
-    const extractedText = await parseOfficeAsync(filePath)
+    const inputBuffer = fs.readFileSync(filePath)
     const fileName = path.basename(filePath)
     const baseName = path.parse(fileName).name
-    const tempFileName = `${baseName}_extracted.txt`
+    const tempFileName = `${baseName}_converted.pdf`
     const tempFilePath = path.join(path.dirname(filePath), tempFileName)
 
-    fs.writeFileSync(tempFilePath, extractedText)
-    console.log('Text extracted from PowerPoint and saved to temporary file')
+    // Convert PowerPoint to PDF using LibreOffice
+    const pdfBuffer = await convertAsync(inputBuffer, '.pdf', undefined)
+    fs.writeFileSync(tempFilePath, pdfBuffer)
 
-    return { textContent: extractedText, tempFilePath }
+    console.log('PowerPoint converted to PDF and saved to temporary file')
+
+    return { tempFilePath }
   } catch (error) {
-    console.error('Failed to extract text from PowerPoint file:', error)
-    throw new Error(`Failed to extract text from PowerPoint file: ${error}`)
+    console.error('Failed to convert PowerPoint file to PDF:', error)
+    throw new Error(`Failed to convert PowerPoint file to PDF: ${error}`)
   }
 }
 
@@ -100,7 +106,7 @@ async function waitForFileProcessing(fileName: string): Promise<void> {
 function cleanupTempFile(tempFilePath?: string): void {
   if (tempFilePath && fs.existsSync(tempFilePath)) {
     fs.unlinkSync(tempFilePath)
-    console.log('Temporary text file cleaned up')
+    console.log('Temporary file cleaned up')
   }
 }
 
@@ -110,9 +116,9 @@ async function createUploadConfig(
 ): Promise<UploadFileParameters & { tempFilePath?: string }> {
   const fileName = path.basename(filePath)
 
-  // Handle PowerPoint files by extracting text
+  // Handle PowerPoint files by converting to PDF
   if (fileType.mime === POWERPOINT_MIME_TYPE) {
-    const { tempFilePath } = await extractTextFromPowerPoint(filePath)
+    const { tempFilePath } = await convertPowerPointToPdf(filePath)
     const tempFileName = path.basename(tempFilePath)
 
     return {
@@ -120,7 +126,7 @@ async function createUploadConfig(
       tempFilePath,
       config: {
         displayName: tempFileName,
-        mimeType: 'text/plain',
+        mimeType: 'application/pdf',
       },
     }
   }
