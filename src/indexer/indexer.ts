@@ -11,6 +11,9 @@ import { extractMetadata } from './extractMetadata'
 
 const DECKS_PATH = path.join(__dirname, '..', '..', 'decks')
 
+const METADATA_RATE_LIMIT = 14 // max 14 per minute (free tier has 15 requests per minute to 2.0-flash)
+const METADATA_REQ_INTERVAL_MS = Math.ceil(60000 / METADATA_RATE_LIMIT)
+
 async function main() {
   const embeddings = new OpenAIEmbeddings({
     model: 'text-embedding-3-large',
@@ -39,13 +42,19 @@ async function main() {
 
   console.log('Docs loaded: ', docs.length)
 
-  for (const doc of docs) {
+  for (let i = 0; i < docs.length; i++) {
+    const doc = docs[i]
     console.log('Extracting metadata for: ', doc.metadata.source)
     const metadata = await extractMetadata(doc.metadata.source)
     console.log('Metadata extracted: ', metadata)
     doc.metadata = {
       ...doc.metadata,
       ...metadata,
+    }
+    if (i < docs.length - 1) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, METADATA_REQ_INTERVAL_MS)
+      )
     }
   }
 
@@ -59,20 +68,27 @@ async function main() {
 
   console.log('Splits done: ', allSplits.length)
 
-  // console.log('Adding decks to vector store...')
-  // await vectorStore.addDocuments(allSplits)
+  console.log('Adding decks to vector store...')
+  await vectorStore.addDocuments(allSplits)
 
   console.log('Done!')
 }
 
-// main()
+main()
 
 async function test() {
   const metadata = await extractMetadata(
-    path.join(__dirname, '..', '..', 'decks', '20181022-1228full-report-en.pdf')
+    path.join(
+      __dirname,
+      '..',
+      '..',
+      'decks',
+      // '2.09-03.1 Helping Global Health Partnerships to Increase their Impact.pdf'
+      "021915newgoldenage-ipwebinar-external-150707203217-lva1-app6891.pptx"
+    )
   )
 
   console.log(metadata)
 }
 
-test()
+// test()

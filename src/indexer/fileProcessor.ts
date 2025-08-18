@@ -28,7 +28,13 @@ async function slicePdfToPages(
   maxPages: number = MAX_PDF_PAGES
 ): Promise<Buffer> {
   try {
-    const pdfDoc = await PDFDocument.load(pdfBuffer)
+    const pdfDoc = await PDFDocument.load(pdfBuffer, {ignoreEncryption: true})
+
+    if (pdfDoc.isEncrypted) {
+      console.log('PDF is encrypted, returning original PDF without slicing')
+      return pdfBuffer
+    }
+
     const totalPages = pdfDoc.getPageCount()
 
     console.log(

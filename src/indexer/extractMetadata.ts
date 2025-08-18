@@ -7,11 +7,15 @@ import {
   GoogleGenAI,
   Type,
   Schema,
+  GenerateContentResponse,
+  ApiError,
 } from '@google/genai'
 import { FileProcessorRegistry } from './fileProcessor'
 import { cleanupTempFile, sleep } from './utils'
 
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY })
+
+const MAX_RETRIES = 3
 
 const zodMetadataSchema = z.object({
   title: z
@@ -100,7 +104,7 @@ async function uploadFile(filePath: string) {
     })
 
     await waitForFileProcessing(uploadedFile.name)
-    console.log('File uploaded successfully:', processedFile.displayName)
+    console.log('File uploaded successfully:', uploadedFile)
 
     return uploadedFile
   } finally {
@@ -112,20 +116,37 @@ async function uploadFile(filePath: string) {
 // Call gemini to extract metadata for each doc
 export async function extractMetadata(filePath: string): Promise<Metadata> {
   const uploadedFile = await uploadFile(filePath)
+  const part = createPartFromUri(uploadedFile.uri, uploadedFile.mimeType)
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
-    contents: [
-      createUserContent([
-        'Extract metadata from this file.',
-        createPartFromUri(uploadedFile.uri, uploadedFile.mimeType),
-      ]),
-    ],
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: geminiMetadataSchema,
-    },
-  })
+  let response: GenerateContentResponse
+  let attempt = 0
+  while (true) {
+    try {
+      response = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: [createUserContent(['Extract metadata from this file.', part])],
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: geminiMetadataSchema,
+        },
+      })
+      break
+    } catch (error: any) {
+      if (attempt > MAX_RETRIES) {
+        throw error
+      }
+
+      // Check for 503 error (service unavailable)
+      if (error?.status === 503 || error?.code === 503) {
+        attempt++
+        console.warn(`Gemini API returned 503 (Service Unavailable). Retrying in 10 seconds... (attempt ${attempt})`)
+        await new Promise((resolve) => setTimeout(resolve, 10000))
+        continue
+      }
+      // Rethrow for all other errors
+      throw error
+    }
+  }
 
   const metadata = zodMetadataSchema.parse(JSON.parse(response.text))
 
