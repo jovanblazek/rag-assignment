@@ -123,9 +123,13 @@ export async function extractMetadata(filePath: string): Promise<Metadata> {
   while (true) {
     try {
       response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash-lite',
         contents: [createUserContent(['Extract metadata from this file.', part])],
         config: {
+          thinkingConfig: {
+            thinkingBudget: 0,
+            includeThoughts: false,
+          },
           responseMimeType: 'application/json',
           responseSchema: geminiMetadataSchema,
         },

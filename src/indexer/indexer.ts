@@ -42,6 +42,11 @@ async function main() {
 
   console.log('Docs loaded: ', docs.length)
 
+  const splitter = new RecursiveCharacterTextSplitter({
+    chunkSize: 1000,
+    chunkOverlap: 200,
+  })
+
   for (let i = 0; i < docs.length; i++) {
     const doc = docs[i]
     console.log('Extracting metadata for: ', doc.metadata.source)
@@ -51,6 +56,16 @@ async function main() {
       ...doc.metadata,
       ...metadata,
     }
+    console.log('Splitting...')
+
+    const allSplits = await splitter.splitDocuments([doc])
+    console.log('Splitting done: ', allSplits.length)
+
+    console.log('Adding to vector store...')
+    await vectorStore.addDocuments(allSplits)
+    console.log('Done!', doc.metadata.source)
+    console.log('---------------------------------------------------')
+
     if (i < docs.length - 1) {
       await new Promise((resolve) =>
         setTimeout(resolve, METADATA_REQ_INTERVAL_MS)
@@ -58,20 +73,7 @@ async function main() {
     }
   }
 
-  console.log('Splitting decks...')
-
-  const splitter = new RecursiveCharacterTextSplitter({
-    chunkSize: 1000,
-    chunkOverlap: 200,
-  })
-  const allSplits = await splitter.splitDocuments(docs)
-
-  console.log('Splits done: ', allSplits.length)
-
-  console.log('Adding decks to vector store...')
-  await vectorStore.addDocuments(allSplits)
-
-  console.log('Done!')
+  console.log('Finished!')
 }
 
 main()
@@ -84,7 +86,7 @@ async function test() {
       '..',
       'decks',
       // '2.09-03.1 Helping Global Health Partnerships to Increase their Impact.pdf'
-      "021915newgoldenage-ipwebinar-external-150707203217-lva1-app6891.pptx"
+      '021915newgoldenage-ipwebinar-external-150707203217-lva1-app6891.pptx'
     )
   )
 
