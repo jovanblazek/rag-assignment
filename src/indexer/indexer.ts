@@ -76,7 +76,9 @@ async function main() {
   console.log('Finished!')
 }
 
-main()
+// Commented out to avoid running indexer by accident
+// TODO: uncomment to run indexer
+// main()
 
 // async function test() {
 //   const metadata = await extractMetadata(
