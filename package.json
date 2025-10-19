@@ -4,34 +4,35 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "indexer": "tsx src/indexer/indexer.ts"
+    "indexer": "tsx src/indexer/indexer.ts",
+    "rag": "tsx src/rag/index.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.4.1",
   "dependencies": {
-    "@google/genai": "^1.11.0",
-    "@langchain/community": "^0.3.49",
-    "@langchain/core": "^0.3.66",
-    "@langchain/google-genai": "^0.2.16",
-    "@langchain/langgraph": "^0.3.11",
-    "@langchain/openai": "^0.6.3",
-    "@langchain/textsplitters": "^0.1.0",
-    "@supabase/supabase-js": "^2.52.1",
-    "dotenv": "^17.2.1",
+    "@google/genai": "^1.25.0",
+    "@langchain/classic": "^1.0.0",
+    "@langchain/community": "^1.0.0",
+    "@langchain/core": "^1.0.1",
+    "@langchain/google-genai": "^1.0.0",
+    "@langchain/langgraph": "^1.0.0",
+    "@langchain/openai": "^1.0.0",
+    "@langchain/textsplitters": "^1.0.0",
+    "@supabase/supabase-js": "^2.75.1",
+    "dotenv": "^17.2.3",
     "file-type": "^21.0.0",
-    "langchain": "^0.3.30",
-    "libreoffice-convert": "^1.6.1",
-    "officeparser": "^5.2.0",
+    "langchain": "^1.0.1",
+    "libreoffice-convert": "^1.7.0",
+    "officeparser": "^5.2.1",
     "pdf-lib": "^1.17.1",
-    "pdf-parse": "^1.1.1",
-    "zod": "^4.0.10"
+    "zod": "^4.1.12"
   },
   "devDependencies": {
-    "@types/node": "^24.1.0",
+    "@types/node": "^24.8.1",
     "prettier": "^3.6.2",
-    "tsx": "^4.20.3",
-    "typescript": "^5.8.3"
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   }
 }

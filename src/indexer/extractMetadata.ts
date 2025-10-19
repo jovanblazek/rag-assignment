@@ -8,7 +8,6 @@ import {
   Type,
   Schema,
   GenerateContentResponse,
-  ApiError,
 } from '@google/genai'
 import { FileProcessorRegistry } from './fileProcessor'
 import { cleanupTempFile, sleep } from './utils'

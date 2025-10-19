@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters'
 import { PPTXLoader } from '@langchain/community/document_loaders/fs/pptx'
 import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf'
-import { DirectoryLoader } from 'langchain/document_loaders/fs/directory'
+import { DirectoryLoader } from "@langchain/classic/document_loaders/fs/directory";
 import path from 'path'
 import { extractMetadata } from './extractMetadata'
 
@@ -78,19 +78,19 @@ async function main() {
 
 main()
 
-async function test() {
-  const metadata = await extractMetadata(
-    path.join(
-      __dirname,
-      '..',
-      '..',
-      'decks',
-      // '2.09-03.1 Helping Global Health Partnerships to Increase their Impact.pdf'
-      '021915newgoldenage-ipwebinar-external-150707203217-lva1-app6891.pptx'
-    )
-  )
+// async function test() {
+//   const metadata = await extractMetadata(
+//     path.join(
+//       __dirname,
+//       '..',
+//       '..',
+//       'decks',
+//       // '2.09-03.1 Helping Global Health Partnerships to Increase their Impact.pdf'
+//       '021915newgoldenage-ipwebinar-external-150707203217-lva1-app6891.pptx'
+//     )
+//   )
 
-  console.log(metadata)
-}
+//   console.log(metadata)
+// }
 
 // test()
